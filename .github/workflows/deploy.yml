@@ -1,0 +1,138 @@
+name: Deployment Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  # ============================================================================
+  # Deploy to Staging
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || (github.event.inputs && github.event.inputs.environment == 'staging')
+    environment: staging
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: '1.5.0'
+      
+      - name: Terraform Init
+        working-directory: infrastructure/terraform
+        env:
+          TF_VAR_environment: staging
+        run: terraform init
+      
+      - name: Terraform Plan
+        working-directory: infrastructure/terraform
+        env:
+          TF_VAR_environment: staging
+        run: terraform plan -out=tfplan
+      
+      - name: Terraform Apply
+        working-directory: infrastructure/terraform
+        env:
+          TF_VAR_environment: staging
+        run: terraform apply -auto-approve tfplan
+      
+      - name: Deploy with Ansible
+        run: |
+          pip install ansible
+          ansible-playbook -i infrastructure/ansible/inventory/staging infrastructure/ansible/deploy-staging.yml
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: false
+      
+      - name: Run smoke tests
+        run: |
+          sleep 30  # Wait for services to be ready
+          pytest tests/smoke/ -v --base-url=https://staging.api.example.com
+      
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "Staging deployment ${{ job.status }}"
+          # Optional: Send notification to Slack
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data "{\"text\":\"Staging deployment ${{ job.status }}\"}" \
+          #   ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # ============================================================================
+  # Deploy to Production (Blue-Green)
+  # ============================================================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.event.inputs && github.event.inputs.environment == 'production'
+    environment: production
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: '1.5.0'
+      
+      - name: Deploy Blue Environment
+        working-directory: infrastructure/terraform
+        env:
+          TF_VAR_environment: production
+          TF_VAR_deployment_color: blue
+        run: |
+          terraform init
+          terraform plan -out=tfplan-blue
+          terraform apply -auto-approve tfplan-blue
+      
+      - name: Run health checks on Blue
+        run: |
+          sleep 30
+          ./scripts/health-check.sh https://blue.api.example.com
+      
+      - name: Switch traffic to Blue
+        run: |
+          ./scripts/switch-traffic.sh blue
+      
+      - name: Run smoke tests
+        run: |
+          pytest tests/smoke/ -v --base-url=https://api.example.com
+      
+      - name: Deploy Green Environment (for next deployment)
+        if: success()
+        working-directory: infrastructure/terraform
+        env:
+          TF_VAR_environment: production
+          TF_VAR_deployment_color: green
+        run: |
+          terraform plan -out=tfplan-green
+          terraform apply -auto-approve tfplan-green
+      
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          ./scripts/rollback.sh
+          ./scripts/switch-traffic.sh green
+      
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "Production deployment ${{ job.status }}"
+          # Optional: Send notification to Slack
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data "{\"text\":\"Production deployment ${{ job.status }}\"}" \
+          #   ${{ secrets.SLACK_WEBHOOK_URL }}
+

@@ -1,0 +1,168 @@
+version: '3.8'
+
+services:
+  # Load Balancer
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./load_balancer/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend1
+      - backend2
+      - backend3
+    restart: unless-stopped
+    networks:
+      - backend-network
+
+  # Backend Services (Multiple Instances)
+  backend1:
+    build: ./services/user-management
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db1:5432/db
+    networks:
+      - backend-network
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  backend2:
+    build: ./services/user-management
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db1:5432/db
+    networks:
+      - backend-network
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  backend3:
+    build: ./services/user-management
+    environment:
+      - DATABASE_URL=postgresql://user:pass@db1:5432/db
+    networks:
+      - backend-network
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  # Auto Scaling Manager
+  scaling-manager:
+    build: ./infrastructure/auto_scaling
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - backend-network
+    restart: unless-stopped
+    depends_on:
+      - backend1
+      - backend2
+      - backend3
+
+  # Database Shards
+  db1:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=ms_neuroplatform_shard1
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - db1_data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    restart: unless-stopped
+
+  db2:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=ms_neuroplatform_shard2
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - db2_data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    restart: unless-stopped
+
+  db3:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=ms_neuroplatform_shard3
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - db3_data:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    restart: unless-stopped
+
+  # Redis (برای caching و session management)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - backend-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - backend-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  db1_data:
+  db2_data:
+  db3_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  backend-network:
+    driver: bridge
+

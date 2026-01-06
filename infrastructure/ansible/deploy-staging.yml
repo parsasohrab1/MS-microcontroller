@@ -1,0 +1,160 @@
+---
+# Ansible Playbook for Staging Deployment
+# استقرار خودکار به محیط Staging
+
+- name: Deploy MS Neuroplatform to Staging
+  hosts: staging
+  become: yes
+  vars:
+    app_user: deploy
+    app_dir: /opt/ms-neuroplatform
+    docker_compose_file: docker-compose.staging.yml
+  
+  tasks:
+    # ============================================================================
+    # Prerequisites
+    # ============================================================================
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+    
+    - name: Install required packages
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+          - python3-pip
+        state: present
+      when: ansible_os_family == "Debian"
+    
+    - name: Ensure Docker service is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+    
+    - name: Add user to docker group
+      user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: yes
+    
+    # ============================================================================
+    # Create application directory
+    # ============================================================================
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+    
+    # ============================================================================
+    # Deploy application files
+    # ============================================================================
+    - name: Copy docker-compose file
+      copy:
+        src: "{{ docker_compose_file }}"
+        dest: "{{ app_dir }}/docker-compose.yml"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0644'
+    
+    - name: Copy environment file
+      template:
+        src: env.staging.j2
+        dest: "{{ app_dir }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+    
+    # ============================================================================
+    # Pull latest images
+    # ============================================================================
+    - name: Login to Docker Hub
+      docker_login:
+        username: "{{ docker_username }}"
+        password: "{{ docker_password }}"
+      no_log: true
+    
+    - name: Pull latest images
+      docker_compose:
+        project_src: "{{ app_dir }}"
+        pull: yes
+        images: yes
+    
+    # ============================================================================
+    # Stop existing containers
+    # ============================================================================
+    - name: Stop existing containers
+      docker_compose:
+        project_src: "{{ app_dir }}"
+        state: stopped
+    
+    # ============================================================================
+    # Start services
+    # ============================================================================
+    - name: Start services
+      docker_compose:
+        project_src: "{{ app_dir }}"
+        state: started
+        restarted: yes
+        recreate: always
+    
+    # ============================================================================
+    # Health checks
+    # ============================================================================
+    - name: Wait for services to be ready
+      wait_for:
+        host: localhost
+        port: "{{ item.port }}"
+        delay: 10
+        timeout: 60
+      loop:
+        - { port: 8001, service: "user-management" }
+        - { port: 8002, service: "data-collection" }
+        - { port: 8003, service: "ml-inference" }
+        - { port: 8000, service: "api-gateway" }
+    
+    - name: Check service health
+      uri:
+        url: "http://localhost:{{ item.port }}/health"
+        method: GET
+        status_code: 200
+      loop:
+        - { port: 8001, service: "user-management" }
+        - { port: 8002, service: "data-collection" }
+        - { port: 8003, service: "ml-inference" }
+        - { port: 8000, service: "api-gateway" }
+      register: health_check
+      until: health_check.status == 200
+      retries: 5
+      delay: 10
+    
+    # ============================================================================
+    # Run database migrations
+    # ============================================================================
+    - name: Run database migrations
+      docker_container:
+        name: migration
+        image: "{{ docker_username }}/user-management:latest"
+        command: alembic upgrade head
+        env:
+          DATABASE_URL: "{{ database_url }}"
+        auto_remove: yes
+      register: migration_result
+    
+    - name: Display migration result
+      debug:
+        var: migration_result
+    
+    # ============================================================================
+    # Cleanup old images
+    # ============================================================================
+    - name: Remove unused Docker images
+      command: docker image prune -af
+      changed_when: false
+

@@ -1,0 +1,182 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # ELK Stack (Centralized Logging)
+  # ============================================================================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: logstash
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+      - ./logstash/config:/usr/share/logstash/config
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+    networks:
+      - monitoring
+    depends_on:
+      - elasticsearch
+    environment:
+      - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - monitoring
+    depends_on:
+      - elasticsearch
+
+  # ============================================================================
+  # Prometheus + Grafana (APM)
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+
+  # ============================================================================
+  # Node Exporter (for system metrics)
+  # ============================================================================
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring
+
+  # ============================================================================
+  # Sentry (Error Tracking)
+  # ============================================================================
+  sentry-redis:
+    image: redis:7-alpine
+    container_name: sentry-redis
+    networks:
+      - monitoring
+
+  sentry-postgres:
+    image: postgres:15-alpine
+    container_name: sentry-postgres
+    environment:
+      - POSTGRES_PASSWORD=sentry
+      - POSTGRES_DB=sentry
+    volumes:
+      - sentry_postgres_data:/var/lib/postgresql/data
+    networks:
+      - monitoring
+
+  sentry:
+    image: getsentry/sentry:latest
+    container_name: sentry
+    environment:
+      - SENTRY_SECRET_KEY=${SENTRY_SECRET_KEY}
+      - SENTRY_POSTGRES_HOST=sentry-postgres
+      - SENTRY_REDIS_HOST=sentry-redis
+      - SENTRY_URL_PREFIX=http://localhost:9000
+    ports:
+      - "9000:9000"
+    networks:
+      - monitoring
+    depends_on:
+      - sentry-redis
+      - sentry-postgres
+
+  sentry-worker:
+    image: getsentry/sentry:latest
+    container_name: sentry-worker
+    command: run worker
+    environment:
+      - SENTRY_SECRET_KEY=${SENTRY_SECRET_KEY}
+      - SENTRY_POSTGRES_HOST=sentry-postgres
+      - SENTRY_REDIS_HOST=sentry-redis
+    networks:
+      - monitoring
+    depends_on:
+      - sentry-redis
+      - sentry-postgres
+
+  sentry-cron:
+    image: getsentry/sentry:latest
+    container_name: sentry-cron
+    command: run cron
+    environment:
+      - SENTRY_SECRET_KEY=${SENTRY_SECRET_KEY}
+      - SENTRY_POSTGRES_HOST=sentry-postgres
+      - SENTRY_REDIS_HOST=sentry-redis
+    networks:
+      - monitoring
+    depends_on:
+      - sentry-redis
+      - sentry-postgres
+
+volumes:
+  elasticsearch_data:
+  prometheus_data:
+  grafana_data:
+  sentry_postgres_data:
+
+networks:
+  monitoring:
+    driver: bridge
+

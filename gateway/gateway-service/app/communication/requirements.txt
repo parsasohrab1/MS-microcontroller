@@ -1,0 +1,14 @@
+# Communication Module Dependencies
+
+# Serial communication (for Cellular)
+pyserial>=3.5
+
+# HTTP client (for Cellular data transfer)
+aiohttp>=3.8.0
+
+# NFC (optional - if using nfcpy)
+# nfcpy>=1.0.0
+
+# Logging
+loguru>=0.7.0
+
