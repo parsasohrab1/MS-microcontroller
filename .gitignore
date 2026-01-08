@@ -58,3 +58,86 @@ site/
 *.bak
 *.backup
 
+# Docker
+*.dockerignore
+docker-compose.override.yml
+.docker/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+postgres_data/
+redis_data/
+rabbitmq_data/
+
+# ML Models (large files)
+*.h5
+*.pkl
+*.joblib
+*.onnx
+*.tflite
+models/checkpoints/
+models/weights/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Firmware build artifacts
+firmware/build/
+firmware/.build/
+firmware/out/
+*.a
+*.lib
+
+# Secrets and credentials
+secrets/
+*.key
+*.pem
+*.cert
+*.crt
+config/secrets.yaml
+config/secrets.yml
+
+# IDE specific
+*.code-workspace
+.vscode/settings.json
+.idea/workspace.xml
+.idea/tasks.xml
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Coverage reports
+htmlcov/
+.coverage.*
+coverage.xml
+*.cover
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre
+.pyre/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Ansible
+*.retry
+
+# Kubernetes
+*.kubeconfig
