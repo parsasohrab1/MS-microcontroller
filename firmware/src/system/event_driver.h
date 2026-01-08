@@ -184,10 +184,40 @@ bool event_driver_set_queue_size(uint32_t size);
  * @param total_events تعداد کل رویدادهای ارسال شده
  * @param processed_events تعداد رویدادهای پردازش شده
  * @param dropped_events تعداد رویدادهای از دست رفته (صف پر)
+ * @param high_priority_events تعداد رویدادهای با اولویت بالا
  */
 void event_driver_get_statistics(uint32_t *total_events,
                                 uint32_t *processed_events,
-                                uint32_t *dropped_events);
+                                uint32_t *dropped_events,
+                                uint32_t *high_priority_events);
+
+/**
+ * @brief ارسال رویداد با داده (استفاده از memory pool)
+ * @param type نوع رویداد
+ * @param source_id شناسه منبع
+ * @param priority اولویت
+ * @param data داده رویداد
+ * @param data_size اندازه داده
+ * @return true در صورت موفقیت
+ */
+bool event_driver_post_event_with_data(event_type_t type,
+                                      uint16_t source_id,
+                                      uint32_t priority,
+                                      const void *data,
+                                      uint16_t data_size);
+
+/**
+ * @brief ارسال رویداد از interrupt handler (ISR-safe)
+ * @param type نوع رویداد
+ * @param source_id شناسه منبع
+ * @param priority اولویت
+ * @return true در صورت موفقیت
+ * 
+ * نکته: این تابع برای استفاده در ISR طراحی شده و از mutex استفاده نمی‌کند
+ */
+bool event_driver_post_event_from_isr(event_type_t type,
+                                      uint16_t source_id,
+                                      uint32_t priority);
 
 #endif // EVENT_DRIVER_H
 

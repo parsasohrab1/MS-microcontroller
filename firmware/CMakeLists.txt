@@ -24,6 +24,7 @@ file(GLOB_RECURSE SOURCES
     "${SOURCE_DIR}/system/hardware_accelerators.c"
     "${SOURCE_DIR}/system/dma_manager.c"
     "${SOURCE_DIR}/system/parallel_processor.c"
+    "${SOURCE_DIR}/system/rtos_tasks.c"
     "${SOURCE_DIR}/signal_processing/optimized_filters.c"
     "${SOURCE_DIR}/ml/optimized_prediction.c"
     "${SOURCE_DIR}/storage/data_compression.c"
@@ -70,7 +71,36 @@ target_compile_options(${PROJECT_NAME}.elf PRIVATE
 target_include_directories(${PROJECT_NAME}.elf PRIVATE
     ${SOURCE_DIR}
     ${INCLUDE_DIR}
+    ${FIRMWARE_ROOT}/include
 )
+
+# ============================================================================
+# FreeRTOS Configuration (بعد از نصب FreeRTOS فعال کنید)
+# ============================================================================
+
+# TODO: بعد از نصب FreeRTOS، این بخش را فعال کنید:
+# 
+# # مسیر FreeRTOS
+# set(FREERTOS_DIR "${FIRMWARE_ROOT}/third_party/FreeRTOS")
+# 
+# # فایل‌های FreeRTOS
+# file(GLOB FREERTOS_SOURCES
+#     "${FREERTOS_DIR}/*.c"
+#     "${FREERTOS_DIR}/portable/GCC/ARM_CM4F/*.c"
+#     "${FREERTOS_DIR}/portable/MemMang/heap_4.c"  # یا heap_1, heap_2, heap_3, heap_5
+# )
+# 
+# # Include directories
+# target_include_directories(${PROJECT_NAME}.elf PRIVATE
+#     ${FREERTOS_DIR}/include
+#     ${FREERTOS_DIR}/portable/GCC/ARM_CM4F
+# )
+# 
+# # اضافه کردن FreeRTOS به target
+# target_sources(${PROJECT_NAME}.elf PRIVATE ${FREERTOS_SOURCES})
+# 
+# # تعریف ماکرو برای فعال‌سازی FreeRTOS
+# target_compile_definitions(${PROJECT_NAME}.elf PRIVATE FREERTOS_AVAILABLE=1)
 
 # TODO: اضافه کردن لینک به کتابخانه‌های nRF SDK
 
