@@ -31,7 +31,9 @@ def brain_mask(data: np.ndarray) -> np.ndarray:
     return ndimage.binary_fill_holes(mask)
 
 
-def correct_bias(data: np.ndarray, mask: np.ndarray | None = None, sigma: float = 8.0) -> np.ndarray:
+def correct_bias(
+    data: np.ndarray, mask: np.ndarray | None = None, sigma: float = 8.0
+) -> np.ndarray:
     """Simple homomorphic bias correction (masked low-pass in log domain).
 
     Lightweight stand-in for N4; swap in SimpleITK N4 for production use.

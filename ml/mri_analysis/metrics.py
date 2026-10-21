@@ -33,7 +33,11 @@ def sensitivity(pred, ref) -> float:
 
 def precision(pred, ref) -> float:
     p, r = _b(pred), _b(ref)
-    return 1.0 if p.sum() == 0 and r.sum() == 0 else (0.0 if p.sum() == 0 else float((p & r).sum() / p.sum()))
+    return (
+        1.0
+        if p.sum() == 0 and r.sum() == 0
+        else (0.0 if p.sum() == 0 else float((p & r).sum() / p.sum()))
+    )
 
 
 def volume_difference(pred, ref, voxel_volume_mm3: float = 1.0) -> Dict[str, float]:
@@ -42,12 +46,16 @@ def volume_difference(pred, ref, voxel_volume_mm3: float = 1.0) -> Dict[str, flo
         "pred_volume_mm3": float(pv),
         "ref_volume_mm3": float(rv),
         "abs_volume_diff_mm3": float(abs(pv - rv)),
-        "rel_volume_diff": float((pv - rv) / rv) if rv > 0 else (0.0 if pv == 0 else float("inf")),
+        "rel_volume_diff": (
+            float((pv - rv) / rv) if rv > 0 else (0.0 if pv == 0 else float("inf"))
+        ),
     }
 
 
 def _surface(mask: np.ndarray) -> np.ndarray:
-    return mask & ~ndimage.binary_erosion(mask, structure=ndimage.generate_binary_structure(3, 1))
+    return mask & ~ndimage.binary_erosion(
+        mask, structure=ndimage.generate_binary_structure(3, 1)
+    )
 
 
 def surface_distances(pred, ref, spacing=(1.0, 1.0, 1.0)) -> Dict[str, float]:
@@ -73,16 +81,29 @@ def lesion_wise_metrics(pred, ref, min_overlap_voxels: int = 1) -> Dict[str, flo
     p, r = _b(pred), _b(ref)
     pl, pn = ndimage.label(p, structure=_S3)
     rl, rn = ndimage.label(r, structure=_S3)
-    tp_ref = sum(1 for i in range(1, rn + 1) if (p & (rl == i)).sum() >= min_overlap_voxels)
-    tp_pred = sum(1 for i in range(1, pn + 1) if (r & (pl == i)).sum() >= min_overlap_voxels)
+    tp_ref = sum(
+        1 for i in range(1, rn + 1) if (p & (rl == i)).sum() >= min_overlap_voxels
+    )
+    tp_pred = sum(
+        1 for i in range(1, pn + 1) if (r & (pl == i)).sum() >= min_overlap_voxels
+    )
     fn, fp = rn - tp_ref, pn - tp_pred
     recall = 1.0 if rn == 0 else tp_ref / rn
     prec = 1.0 if pn == 0 and rn == 0 else (0.0 if pn == 0 else tp_pred / pn)
-    f1 = 1.0 if (pn == 0 and rn == 0) else (0.0 if recall + prec == 0 else 2 * recall * prec / (recall + prec))
+    f1 = (
+        1.0
+        if (pn == 0 and rn == 0)
+        else (0.0 if recall + prec == 0 else 2 * recall * prec / (recall + prec))
+    )
     return {
-        "n_ref_lesions": rn, "n_pred_lesions": pn,
-        "lesion_tp": tp_ref, "lesion_fn": fn, "lesion_fp": fp,
-        "lesion_recall": float(recall), "lesion_precision": float(prec), "lesion_f1": float(f1),
+        "n_ref_lesions": rn,
+        "n_pred_lesions": pn,
+        "lesion_tp": tp_ref,
+        "lesion_fn": fn,
+        "lesion_fp": fp,
+        "lesion_recall": float(recall),
+        "lesion_precision": float(prec),
+        "lesion_f1": float(f1),
     }
 
 
@@ -91,8 +112,10 @@ def compute_all_metrics(pred, ref, spacing=(1.0, 1.0, 1.0)) -> Dict[str, float]:
     if p.shape != r.shape:
         raise ValueError(f"shape mismatch: pred {p.shape} vs ref {r.shape}")
     out = {
-        "dice": dice(p, r), "iou": iou(p, r),
-        "sensitivity": sensitivity(p, r), "precision": precision(p, r),
+        "dice": dice(p, r),
+        "iou": iou(p, r),
+        "sensitivity": sensitivity(p, r),
+        "precision": precision(p, r),
     }
     out.update(volume_difference(p, r, float(np.prod(spacing))))
     out.update(surface_distances(p, r, spacing))

@@ -4,24 +4,35 @@ import numpy as np
 import pytest
 
 from ml.mri_analysis import (
-    ThresholdSegmenter, CallableSegmenter, analyze_case, dice, evaluate_dataset,
-    lesion_wise_metrics, load_volume, run_qc, save_volume, surface_distances,
+    ThresholdSegmenter,
+    CallableSegmenter,
+    analyze_case,
+    dice,
+    evaluate_dataset,
+    lesion_wise_metrics,
+    load_volume,
+    run_qc,
+    save_volume,
+    surface_distances,
     compute_all_metrics,
 )
 from ml.mri_analysis.synthetic import make_phantom
 
 
 def test_dice_basic():
-    a = np.zeros((10, 10, 10), bool); a[2:6, 2:6, 2:6] = True
+    a = np.zeros((10, 10, 10), bool)
+    a[2:6, 2:6, 2:6] = True
     assert dice(a, a) == 1.0
     assert dice(a, np.zeros_like(a)) == 0.0
     assert dice(np.zeros_like(a), np.zeros_like(a)) == 1.0
-    b = np.zeros_like(a); b[2:6, 2:6, 2:4] = True
+    b = np.zeros_like(a)
+    b[2:6, 2:6, 2:4] = True
     assert dice(a, b) == pytest.approx(2 * 32 / (64 + 32))
 
 
 def test_surface_distance_shift():
-    a = np.zeros((20, 20, 20), bool); a[5:10, 5:10, 5:10] = True
+    a = np.zeros((20, 20, 20), bool)
+    a[5:10, 5:10, 5:10] = True
     b = np.roll(a, 2, axis=0)
     sd = surface_distances(a, b)
     assert 0 < sd["assd_mm"] < 3 and sd["hd_mm"] >= 2
@@ -29,8 +40,12 @@ def test_surface_distance_shift():
 
 
 def test_lesion_wise():
-    ref = np.zeros((20, 20, 20), bool); ref[2:4, 2:4, 2:4] = True; ref[10:12, 10:12, 10:12] = True
-    pred = np.zeros_like(ref); pred[2:4, 2:4, 2:4] = True; pred[16:18, 16:18, 16:18] = True
+    ref = np.zeros((20, 20, 20), bool)
+    ref[2:4, 2:4, 2:4] = True
+    ref[10:12, 10:12, 10:12] = True
+    pred = np.zeros_like(ref)
+    pred[2:4, 2:4, 2:4] = True
+    pred[16:18, 16:18, 16:18] = True
     m = lesion_wise_metrics(pred, ref)
     assert (m["lesion_tp"], m["lesion_fn"], m["lesion_fp"]) == (1, 1, 1)
     assert m["lesion_f1"] == pytest.approx(0.5)
@@ -46,7 +61,8 @@ def test_qc_pass_and_fail():
     assert run_qc(vol).passed
     bad = vol.__class__(np.full(vol.shape, 1.0, np.float32), vol.spacing)
     assert not run_qc(bad).passed
-    nan = vol.__class__(vol.data.copy(), vol.spacing); nan.data[0, 0, 0] = np.nan
+    nan = vol.__class__(vol.data.copy(), vol.spacing)
+    nan.data[0, 0, 0] = np.nan
     assert not run_qc(nan).passed
     noisy, _ = make_phantom(noise=0.5)
     assert not run_qc(noisy).passed
@@ -74,8 +90,12 @@ def test_pipeline_and_dataset(tmp_path):
     assert res["segmented"] and res["metrics"]["dice"] > 0.6
     assert load_volume(out_p).data.shape == vol.shape
 
-    out = evaluate_dataset([{"id": "a", "image": img_p, "reference": ref_p}],
-                           ThresholdSegmenter(), str(tmp_path / "m.csv"), str(tmp_path / "m.json"))
+    out = evaluate_dataset(
+        [{"id": "a", "image": img_p, "reference": ref_p}],
+        ThresholdSegmenter(),
+        str(tmp_path / "m.csv"),
+        str(tmp_path / "m.json"),
+    )
     assert out["n_cases"] == 1 and out["summary"]["dice"]["mean"] > 0.6
     assert (tmp_path / "m.csv").exists()
 

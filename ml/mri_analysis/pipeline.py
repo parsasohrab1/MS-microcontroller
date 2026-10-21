@@ -12,9 +12,14 @@ from .qc import run_qc
 from .segmentation import Segmenter, ThresholdSegmenter
 
 
-def analyze_case(image_path: str, reference_path: Optional[str] = None,
-                 segmenter: Optional[Segmenter] = None, output_mask_path: Optional[str] = None,
-                 qc_thresholds: Optional[dict] = None, fail_on_qc: bool = False) -> dict:
+def analyze_case(
+    image_path: str,
+    reference_path: Optional[str] = None,
+    segmenter: Optional[Segmenter] = None,
+    output_mask_path: Optional[str] = None,
+    qc_thresholds: Optional[dict] = None,
+    fail_on_qc: bool = False,
+) -> dict:
     vol = load_volume(image_path)
     qc = run_qc(vol, qc_thresholds)
     if not qc.passed and fail_on_qc:
@@ -28,7 +33,9 @@ def analyze_case(image_path: str, reference_path: Optional[str] = None,
         "lesion_volume_mm3": float(seg.sum() * vol.voxel_volume_mm3),
     }
     if output_mask_path:
-        save_volume(Volume(seg.astype(np.uint8), vol.spacing, vol.affine), output_mask_path)
+        save_volume(
+            Volume(seg.astype(np.uint8), vol.spacing, vol.affine), output_mask_path
+        )
     if reference_path:
         ref = load_volume(reference_path).data > 0.5
         result["metrics"] = evaluate_case(seg, ref, vol.spacing)

@@ -37,7 +37,8 @@ def load_volume(path: str) -> Volume:
             raise ImportError("nibabel is required to read NIfTI files") from e
         img = nib.load(path)
         data = np.asarray(img.dataobj, dtype=np.float32)
-        spacing = tuple(float(z) for z in img.header.get_zooms()[:3])
+        zooms = [float(z) for z in img.header.get_zooms()[:3]]
+        spacing = (zooms[0], zooms[1], zooms[2])
         return Volume(data, spacing, np.asarray(img.affine), path)
     if lower.endswith(".npy"):
         data = np.load(path).astype(np.float32)
@@ -45,8 +46,8 @@ def load_volume(path: str) -> Volume:
     if lower.endswith(".npz"):
         with np.load(path) as z:
             data = z["data"].astype(np.float32)
-            spacing = tuple(float(s) for s in z["spacing"]) if "spacing" in z else (1.0,) * 3
-        return Volume(data, spacing, path=path)
+            sp = [float(s) for s in z["spacing"]] if "spacing" in z else [1.0] * 3
+        return Volume(data, (sp[0], sp[1], sp[2]), path=path)
     raise ValueError(f"Unsupported file format: {path}")
 
 
@@ -54,6 +55,7 @@ def save_volume(vol: Volume, path: str) -> None:
     lower = path.lower()
     if lower.endswith((".nii", ".nii.gz")):
         import nibabel as nib
+
         nib.save(nib.Nifti1Image(vol.data, vol.affine), path)
     elif lower.endswith(".npz"):
         np.savez_compressed(path, data=vol.data, spacing=np.asarray(vol.spacing))
