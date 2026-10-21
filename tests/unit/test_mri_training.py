@@ -119,10 +119,8 @@ def test_torch_segmenter_and_onnx_parity(trained):
 
     info = export_onnx(ck, str(d / "m.onnx"))
     assert info["max_abs_diff"] < 1e-3
-    onnx_seg = ONNXSegmenter(str(d / "m.onnx"), threshold=info["threshold"]).segment(
-        vol
-    )
-    assert dice(onnx_seg, seg) > 0.9 or (not onnx_seg.any() and not seg.any())
+    onnx_seg = ONNXSegmenter(str(d / "m.onnx")).segment(vol)
+    assert seg.any() and dice(onnx_seg, seg) > 0.95
 
 
 def test_sliding_window_matches_full_forward():

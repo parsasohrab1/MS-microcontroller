@@ -11,4 +11,3 @@ __all__ = [
     "PatientProfile",
     "PatientResponse",
 ]
-

@@ -36,7 +36,7 @@ PyTorch pipeline for training a 3D U-Net lesion segmenter (`pip install -r ml/mr
 | Manifest loading, subject-level split, foreground-biased patch sampling, flip/intensity/noise augmentation | `data.py` |
 | Training loop: AdamW, poly LR, grad clipping, per-epoch sliding-window validation Dice, validation-tuned threshold, best/last checkpoints, resume, early stopping | `trainer.py` |
 | Sliding-window inference and `TorchSegmenter` | `inference.py` |
-| ONNX export with PyTorch-vs-ONNX parity check (loads in `ONNXSegmenter`) | `export.py` |
+| ONNX export with PyTorch-vs-ONNX parity check; writes `<model>.onnx.json` (patch size, threshold) that `ONNXSegmenter` reads to run the same sliding-window inference as training | `export.py` |
 
 Data: a manifest (CSV/JSON) with columns `id,image,mask` (FLAIR + binary lesion mask, NIfTI/npz/npy; relative paths resolve against the manifest). Splits are per subject and written to `split.json`.
 

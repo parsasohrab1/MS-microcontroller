@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import torch
 
@@ -37,6 +39,8 @@ def export_onnx(checkpoint: str, out_path: str, verify: bool = True) -> dict:
     except TypeError:  # older torch without the dynamo kwarg
         torch.onnx.export(wrapped, dummy, out_path, **kwargs)
     info = {"path": out_path, "threshold": ck.get("threshold", 0.5), "patch_size": p}
+    with open(out_path + ".json", "w") as f:
+        json.dump({"patch_size": p, "threshold": info["threshold"]}, f)
     if verify:
         import onnxruntime as ort
 
