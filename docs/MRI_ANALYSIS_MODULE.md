@@ -50,3 +50,22 @@ python -m ml.mri_analysis.training.cli make-synthetic /tmp/syn && python -m ml.m
 ```
 
 **Caveats.** No real MS dataset is bundled and none was used: tests train on the synthetic phantom only, so they verify the pipeline (loss decreases, resume, ONNX parity), not clinical accuracy. Datasets such as MSSEG-2016, ISBI 2015 and MSLesSeg have their own licences and must be obtained and cited separately. The validation threshold is tuned on the same split used for checkpoint selection, so report final numbers on a separate held-out test set (the `evaluate` command takes any manifest). Single-channel FLAIR only; for a publishable result expect to need multi-site data, larger patches/GPU training, and comparison against nnU-Net.
+
+## Public dataset loaders (`ml/mri_analysis/datasets.py`)
+Builds a training manifest (`id,image,mask,subject,site`) from a downloaded public dataset. **Nothing is downloaded for you**: these datasets need registration and have their own licences/citation requirements, so get them from the official challenge pages and point the loader at the extracted folder.
+
+| Dataset | Loader | Expected layout |
+|---|---|---|
+| ISBI 2015 longitudinal (training set) | `discover_isbi2015(root, rater="1"\|"2"\|"union"\|"intersection")` | `training/trainingNN/preprocessed/trainingNN_TT_flair_pp.nii[.gz]`, `training/trainingNN/masks/trainingNN_TT_mask{1,2}.nii[.gz]` |
+| MSSEG-2016 | `discover_msseg2016(root)` | `{Training,Testing}/Center_XX/Patient_YY/Preprocessed_Data/FLAIR_preprocessed.nii.gz` + `Masks/Consensus.nii.gz` |
+| anything else | `discover_pattern(root, image_glob, mask_glob, subject_regex=None)` | any layout where image and mask pair by a regex group (default: parent folder) |
+
+```bash
+python -m ml.mri_analysis.datasets isbi2015 /data/isbi2015 --rater union --out isbi_manifest.csv --verify
+python -m ml.mri_analysis.datasets msseg2016 /data/msseg2016 --out msseg_manifest.csv --verify
+python -m ml.mri_analysis.training.cli train isbi_manifest.csv --output-dir runs/isbi --epochs 200 --patch 64 64 64
+```
+- `--verify` loads every case and reports shape mismatches, non-binary masks, empty masks and unreadable files (exit code 1 if any).
+- `subject` drives the split: `split_cases` keeps all rows of a subject together, which matters for ISBI (several timepoints per patient) - splitting by row would leak patients between train and validation. `site` is kept for per-centre evaluation.
+- The layouts above are written from the datasets' published structure and exercised in tests only with **synthetic folders built to that layout**; they have not been run against the real downloads. If your copy differs, `discover_*` raises a clear "check the folder layout" error, and `discover_pattern` covers the rest.
+- ISBI 2015 test-set masks are not public, so only the training set is usable for supervised training/validation. ISBI `union`/`intersection` masks are written to `<root>/_combined_masks`.
