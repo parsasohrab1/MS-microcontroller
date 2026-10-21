@@ -106,7 +106,7 @@ def train(cfg: TrainConfig) -> dict:
 
     start_epoch, best, best_thr, history, bad = 0, -1.0, 0.5, [], 0
     if cfg.resume:
-        ck = torch.load(cfg.resume, map_location=device, weights_only=False)
+        ck = torch.load(cfg.resume, map_location=device, weights_only=True)
         model.load_state_dict(ck["state_dict"])
         opt.load_state_dict(ck["optimizer"])
         sched.load_state_dict(ck["scheduler"])

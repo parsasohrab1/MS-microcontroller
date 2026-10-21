@@ -53,7 +53,7 @@ def sliding_window_predict(
 
 
 def load_checkpoint(path: str, device: str = "cpu") -> Tuple[UNet3D, dict]:
-    ck = torch.load(path, map_location=device, weights_only=False)
+    ck = torch.load(path, map_location=device, weights_only=True)
     cfg = ck["model_config"]
     model = UNet3D(**cfg).to(device)
     model.load_state_dict(ck["state_dict"])
