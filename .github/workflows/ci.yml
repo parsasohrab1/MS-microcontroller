@@ -27,7 +27,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r ml/mri_analysis/requirements-ci.txt
       - name: Run unit tests
-        run: pytest tests/unit/test_mri_analysis.py -v --cov=ml/mri_analysis --cov-report=term-missing
+        run: pytest tests/unit/test_mri_analysis.py tests/unit/test_mri_datasets.py -v --cov=ml/mri_analysis --cov-report=term-missing
 
   training-tests:
     name: Training Pipeline Tests
@@ -131,9 +131,9 @@ jobs:
       - name: Install linting tools
         run: pip install black flake8 mypy numpy scipy
       - name: Run Black
-        run: black --check ml/mri_analysis tests/unit/test_mri_analysis.py tests/unit/test_mri_training.py
+        run: black --check ml/mri_analysis tests/unit/test_mri_analysis.py tests/unit/test_mri_datasets.py tests/unit/test_mri_training.py
       - name: Run Flake8
-        run: flake8 ml/mri_analysis tests/unit/test_mri_analysis.py tests/unit/test_mri_training.py --max-line-length=100 --extend-ignore=E203
+        run: flake8 ml/mri_analysis tests/unit/test_mri_analysis.py tests/unit/test_mri_datasets.py tests/unit/test_mri_training.py --max-line-length=100 --extend-ignore=E203
       - name: Run MyPy
         run: mypy ml/mri_analysis --ignore-missing-imports
 

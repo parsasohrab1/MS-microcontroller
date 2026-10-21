@@ -42,19 +42,26 @@ def load_manifest(path: str) -> List[Dict[str, str]]:
                     if os.path.isabs(r["mask"])
                     else os.path.join(base, r["mask"])
                 ),
+                "subject": str(r.get("subject") or r["id"]),
+                "site": str(r.get("site") or ""),
             }
         )
     return out
 
 
 def split_cases(cases: Sequence[dict], val_fraction: float = 0.2, seed: int = 0):
-    """Subject-level split (one row == one subject; never split patches of a subject)."""
-    if len(cases) < 2:
-        raise ValueError("need at least 2 cases for a train/val split")
-    idx = np.random.default_rng(seed).permutation(len(cases))
-    n_val = max(1, int(round(len(cases) * val_fraction)))
-    val = [cases[i] for i in idx[:n_val]]
-    train = [cases[i] for i in idx[n_val:]]
+    """Subject-level split: all rows sharing a `subject` (e.g. longitudinal
+    timepoints) land on the same side; rows without one count as their own subject."""
+    groups: Dict[str, List[dict]] = {}
+    for c in cases:
+        groups.setdefault(str(c.get("subject") or c["id"]), []).append(c)
+    if len(groups) < 2:
+        raise ValueError("need at least 2 subjects for a train/val split")
+    keys = sorted(groups)
+    idx = np.random.default_rng(seed).permutation(len(keys))
+    n_val = max(1, int(round(len(keys) * val_fraction)))
+    val = [c for i in idx[:n_val] for c in groups[keys[i]]]
+    train = [c for i in idx[n_val:] for c in groups[keys[i]]]
     return train, val
 
 

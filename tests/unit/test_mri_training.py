@@ -49,6 +49,26 @@ def test_split_is_subject_level_and_deterministic():
         split_cases(cases[:1])
 
 
+def test_split_keeps_subject_timepoints_together():
+    cases = [
+        {"id": f"s{s}_t{t}", "subject": f"s{s}"} for s in range(6) for t in range(3)
+    ]
+    for seed in range(5):
+        tr, va = split_cases(cases, 0.34, seed=seed)
+        assert not {c["subject"] for c in tr} & {c["subject"] for c in va}
+        assert len(tr) + len(va) == len(cases) and len(va) % 3 == 0
+
+
+def test_manifest_keeps_subject_and_site(tmp_path):
+    p = tmp_path / "m.csv"
+    p.write_text(
+        "id,image,mask,subject,site\nc1,a.nii,b.nii,s1,siteA\nc2,a.nii,b.nii,,\n"
+    )
+    rows = load_manifest(str(p))
+    assert rows[0]["subject"] == "s1" and rows[0]["site"] == "siteA"
+    assert rows[1]["subject"] == "c2"
+
+
 def test_patch_dataset_shapes_and_foreground(tmp_path):
     cases = load_manifest(make_synthetic_dataset(str(tmp_path), 2, shape=(32, 32, 32)))
     ds = PatchDataset(cases, (16, 16, 16), samples_per_epoch=20, fg_prob=1.0)
