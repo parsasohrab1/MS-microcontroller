@@ -55,7 +55,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
+          pip install pytest requests
       - name: Run E2E tests
         run: pytest tests/e2e/ -v
 
